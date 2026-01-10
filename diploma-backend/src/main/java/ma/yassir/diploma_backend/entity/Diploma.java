@@ -37,6 +37,9 @@ public class Diploma {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt; // [cite: 112]
 
+    @Column(nullable = false)
+    private boolean isValid = true;
+
     // Clé étrangère vers Student
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false) // [cite: 95]

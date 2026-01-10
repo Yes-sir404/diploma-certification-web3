@@ -1,7 +1,13 @@
 package ma.yassir.diploma_backend.service;
 
 import com.itextpdf.barcodes.BarcodeQRCode;
+import com.itextpdf.io.font.constants.StandardFonts; // Pour Times New Roman
+import com.itextpdf.io.image.ImageData;
+import com.itextpdf.io.image.ImageDataFactory;
 import com.itextpdf.kernel.colors.ColorConstants;
+import com.itextpdf.kernel.colors.DeviceRgb; // Pour les couleurs précises (Or/Bleu roi)
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
@@ -11,18 +17,23 @@ import com.itextpdf.layout.element.Image;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Text;
 import com.itextpdf.layout.properties.TextAlignment;
-import ma.yassir.diploma_backend.entity.Diploma;
-import ma.yassir.diploma_backend.entity.Student;
+import com.itextpdf.layout.properties.VerticalAlignment;
+import ma.yassir.diploma_backend.controller.DiplomaController;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
+import org.web3j.utils.Numeric;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 @Service
 public class PdfService {
@@ -30,139 +41,165 @@ public class PdfService {
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    // URL de votre Frontend React (Vite par défaut tourne sur le port 5173)
     private static final String FRONTEND_URL = "http://localhost:5173";
 
+    public String generateDiplomaPdf(DiplomaController.DiplomaRequestDTO request) throws IOException {
 
-    /**
-     * Génère le fichier PDF du diplôme.
-     * @param student L'étudiant concerné
-     * @param diploma Les infos du diplôme (Année, Spécialité)
-     * @return Le chemin complet du fichier généré
-     */
-    public String generateDiplomaPdf(Student student, Diploma diploma) throws IOException {
-
-        // 1. Créer le dossier de stockage s'il n'existe pas
         Path uploadPath = Paths.get(uploadDir);
-        if (!Files.exists(uploadPath)) {
-            Files.createDirectories(uploadPath);
-        }
+        if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
 
-        // 2. Définir le nom du fichier (Ex: CNE_Specialite.pdf)
-        String fileName = student.getCne() + "_" + diploma.getSpeciality().replaceAll("\\s+", "_") + ".pdf";
+        String fileName = request.cne + "_" + request.major.replaceAll("\\s+", "_") + ".pdf";
         String filePath = uploadPath.resolve(fileName).toString();
 
-        // 3. Initialiser iText pour écrire le PDF
         PdfWriter writer = new PdfWriter(filePath);
         PdfDocument pdf = new PdfDocument(writer);
-        Document document = new Document(pdf, PageSize.A4.rotate()); // Format Paysage (Landscape)
+        // Format A4 Paysage
+        Document document = new Document(pdf, PageSize.A4.rotate());
 
-        // 4. Ajouter le contenu visuel (Design simple pour le prototype)
+        // Marges adaptées pour le cadre
+        document.setMargins(40, 50, 40, 50);
 
-        // -- Titre de l'école
-        Paragraph schoolName = new Paragraph("ENSIASD - Taroudant")
+        // --- 0. POLICES & COULEURS ---
+        PdfFont fontNormal = PdfFontFactory.createFont(StandardFonts.TIMES_ROMAN);
+        PdfFont fontBold = PdfFontFactory.createFont(StandardFonts.TIMES_BOLD);
+        // Bleu Roi officiel (semblable aux diplômes)
+        DeviceRgb royalBlue = new DeviceRgb(0, 51, 102);
+        // Couleur Or pour le titre
+        DeviceRgb goldColor = new DeviceRgb(184, 134, 11);
+
+        // --- 1. ARRIÈRE-PLAN (CADRE / BACKGROUND) ---
+        try {
+            ClassPathResource bgResource = new ClassPathResource("background.jpg");
+            if (bgResource.exists()) {
+                Image bg = new Image(ImageDataFactory.create(bgResource.getURL()));
+                // On fixe l'image pour qu'elle couvre TOUTE la page (0,0)
+                bg.setFixedPosition(0, 0);
+                bg.scaleAbsolute(PageSize.A4.rotate().getWidth(), PageSize.A4.rotate().getHeight());
+                document.add(bg);
+            }
+        } catch (Exception e) { /* Ignorer si pas d'image */ }
+
+        // --- 2. EN-TÊTE OFFICIEL (ROYAUME DU MAROC) ---
+        // On place l'emblème au centre en haut
+        try {
+            ClassPathResource emblemResource = new ClassPathResource("coat_of_arms.png");
+            if (emblemResource.exists()) {
+                Image emblem = new Image(ImageDataFactory.create(emblemResource.getURL()));
+                emblem.scaleToFit(50, 50);
+                emblem.setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+                document.add(emblem);
+            }
+        } catch (Exception e) { }
+
+        // Texte En-tête
+        Paragraph header = new Paragraph()
+                .add(new Text("ROYAUME DU MAROC\n").setFont(fontBold).setFontSize(10))
+                .add(new Text("MINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR,\nDE LA RECHERCHE SCIENTIFIQUE ET DE L'INNOVATION\n").setFont(fontNormal).setFontSize(8))
+                .add(new Text("UNIVERSITÉ IBN ZOHR\n").setFont(fontBold).setFontSize(10))
+                .add(new Text("ÉCOLE NATIONALE DES SCIENCES APPLIQUÉES").setFont(fontBold).setFontSize(10)) // Remplace ENSIASD
+                .setTextAlignment(TextAlignment.CENTER)
+                .setFontColor(ColorConstants.BLACK)
+                .setMarginBottom(10);
+        document.add(header);
+
+        // --- 3. TITRE DU DIPLÔME ---
+        document.add(new Paragraph("DIPLÔME D'INGÉNIEUR D'ÉTAT")
+                .setFont(fontBold)
                 .setFontSize(24)
-                .setBold()
-                .setFontColor(ColorConstants.BLUE)
-                .setTextAlignment(TextAlignment.CENTER);
-        document.add(schoolName);
+                .setFontColor(goldColor) // Couleur Or/Doré
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginTop(10)
+                .setMarginBottom(20));
 
-        // -- Titre du document
-        document.add(new Paragraph("\n\nATTESTATION DE DIPLÔME")
-                .setFontSize(30)
-                .setBold()
-                .setTextAlignment(TextAlignment.CENTER));
+        // --- 4. CORPS DU TEXTE (FORMULATION OFFICIELLE) ---
 
-        // -- Corps du texte
         Paragraph body = new Paragraph()
-                .add(new Text("\n\nNous certifions que l'étudiant(e) "))
-                .add(new Text(student.getFirstName() + " " + student.getLastName().toUpperCase()).setBold())
-                .add(new Text("\nNé(e) le : " + student.getBirthDate()))
-                .add(new Text("\nCode National (CNE) : " + student.getCne()))
-                .add(new Text("\n\nA validé avec succès les examens nécessaires à l'obtention du diplôme de :"))
-                .setFontSize(14)
-                .setTextAlignment(TextAlignment.CENTER);
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMultipliedLeading(1.5f); // Espacement des lignes élégant
+
+        body.add(new Text("Le Président de l'Université, sur proposition du Directeur de l'École,\n").setFont(fontNormal).setFontSize(12));
+        body.add(new Text("atteste que :\n").setFont(fontNormal).setFontSize(12));
+
+        // Nom de l'étudiant en TRÈS GRAND
+        body.add(new Text(request.firstName + " " + request.lastName.toUpperCase() + "\n").setFont(fontBold).setFontSize(26).setFontColor(royalBlue));
+
+        // Infos détaillées
+        body.add(new Text("Né(e) le : " + formatDate(request.birthDate) + "       ").setFont(fontNormal).setFontSize(12));
+        body.add(new Text("CNI : " + request.cni + "       ").setFont(fontNormal).setFontSize(12));
+        body.add(new Text("CNE : " + request.cne + "\n").setFont(fontNormal).setFontSize(12));
+
+        body.add(new Text("A obtenu le Diplôme d'Ingénieur d'État en :\n").setFont(fontNormal).setFontSize(14));
+        body.add(new Text(request.major.toUpperCase() + "\n").setFont(fontBold).setFontSize(18));
+        body.add(new Text("(Promotion " + request.graduationYear + ")").setFont(fontNormal).setFontSize(12));
+
         document.add(body);
 
-        // -- Spécialité
-        Paragraph speciality = new Paragraph(diploma.getSpeciality())
-                .setFontSize(20)
-                .setBold()
+        // --- 5. BAS DE PAGE (LIEU, DATE, SIGNATURE, QR) ---
+
+        // Espace flexible
+        document.add(new Paragraph("\n"));
+
+        // Date dynamique
+        String currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+
+        // Conteneur pour signature et date
+        Paragraph footer = new Paragraph()
+                .add(new Text("Fait à Taroudant, le " + currentDate + "\n").setFont(fontNormal).setFontSize(12))
                 .setTextAlignment(TextAlignment.CENTER)
                 .setMarginTop(20);
-        document.add(speciality);
 
-        document.add(new Paragraph("Promotion : " + diploma.getGraduationYear())
-                .setTextAlignment(TextAlignment.CENTER));
+        // Signature (Texte)
+        footer.add(new Text("Le Président de l'Université                                        Le Directeur de l'École").setFont(fontBold).setFontSize(11));
+        document.add(footer);
 
-        // 5. Générer le QR Code de vérification
-        // Ce QR Code pointera vers votre site public pour vérifier le Hash
-        // Note: Le lien exact dépendra du Hash final, ici on met un lien temporaire ou l'ID
-        // Dans une V2, on génère le QR après avoir calculé le Hash (processus en 2 temps),
-        // mais pour simplifier ici, on encode l'URL de vérification basée sur l'ID futur (ou le CNE).
-        // Générer le QR Code (CORRECTIF ICI)
-        // On pointe vers le site React avec l'ID unique du diplôme
-        String verificationUrl = FRONTEND_URL + "/verify/" + diploma.getId();
-
-
+        // QR CODE (Placé discrètement en bas au centre)
+        String verificationUrl = FRONTEND_URL + "/verify/" + request.cne;
         BarcodeQRCode qrCode = new BarcodeQRCode(verificationUrl);
         PdfFormXObject qrCodeObject = qrCode.createFormXObject(ColorConstants.BLACK, pdf);
-        Image qrCodeImage = new Image(qrCodeObject)
-                .setWidth(100)
-                .setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
-        document.add(new Paragraph("\nScannez pour vérifier l'authenticité :").setTextAlignment(TextAlignment.CENTER).setFontSize(10));
+        Image qrCodeImage = new Image(qrCodeObject).setWidth(70).setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+
         document.add(qrCodeImage);
+        document.add(new Paragraph("Réf Blockchain: " + request.cne).setFontSize(6).setTextAlignment(TextAlignment.CENTER).setFontColor(ColorConstants.GRAY));
 
-        // 6. Fermer le document
         document.close();
-        System.out.println("📄 PDF généré avec succès : " + filePath);
-
         return filePath;
     }
 
-    /**
-     * Calcule le Hash SHA-256 du fichier PDF généré.
-     * C'est ce Hash qui sera stocké sur la Blockchain pour garantir l'intégrité.
-     */
-    public String calculatePdfHash(String filePath) throws Exception {
+    // Petit utilitaire pour formater la date proprement
+    private String formatDate(String dateStr) {
+        if(dateStr == null || dateStr.isEmpty()) return "Non renseigné";
+        try {
+            LocalDate date = LocalDate.parse(dateStr);
+            return date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        } catch (Exception e) {
+            return dateStr;
+        }
+    }
+
+    // --- HASHING METHODS CORRIGÉES ---
+
+    // Utilisé lors de la CRÉATION (Lecture fichier disque)
+    public byte[] calculatePdfHashBytes(String filePath) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         FileInputStream fis = new FileInputStream(new File(filePath));
-
         byte[] byteArray = new byte[1024];
         int bytesCount;
-
-        while ((bytesCount = fis.read(byteArray)) != -1) {
-            digest.update(byteArray, 0, bytesCount);
-        }
+        while ((bytesCount = fis.read(byteArray)) != -1) digest.update(byteArray, 0, bytesCount);
         fis.close();
-
-        byte[] bytes = digest.digest();
-
-        // Convertir les bytes en format Hexadécimal (String)
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) {
-            sb.append(String.format("%02x", b));
-        }
-
-        // Ajouter le préfixe "0x" requis par Solidity/Web3j
-        return "0x" + sb.toString();
+        return digest.digest();
     }
-    // Dans PdfService.java
 
-    public String calculateHashFromStream(java.io.InputStream inputStream) throws Exception {
+    // Utilisé lors de la VÉRIFICATION (Lecture fichier uploadé)
+    public String calculateHashFromStream(InputStream inputStream) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] byteArray = new byte[1024];
         int bytesCount;
-
         while ((bytesCount = inputStream.read(byteArray)) != -1) {
             digest.update(byteArray, 0, bytesCount);
         }
-
         byte[] bytes = digest.digest();
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) {
-            sb.append(String.format("%02x", b));
-        }
-        return "0x" + sb.toString(); // Format compatible Solidity
+
+        // --- CORRECTION : Utilisation de Web3j ---
+        return Numeric.toHexString(bytes);
     }
 }

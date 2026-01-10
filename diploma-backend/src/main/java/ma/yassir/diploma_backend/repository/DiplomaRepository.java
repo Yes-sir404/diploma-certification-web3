@@ -21,4 +21,8 @@ public interface DiplomaRepository extends JpaRepository<Diploma, Long> {
 
     // Trouve un diplôme grâce au Hash de la transaction Ethereum
     Optional<Diploma> findByTransactionHash(String transactionHash);
+    // Permet de trouver le diplôme via le CNE de l'étudiant associé
+    Optional<Diploma> findByStudent_Cne(String cne);
+
+
 }

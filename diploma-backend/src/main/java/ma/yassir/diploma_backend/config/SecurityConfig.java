@@ -1,4 +1,3 @@
-// Config Spring Security (Hashage mot de passe, CORS)
 package ma.yassir.diploma_backend.config;
 
 import org.springframework.context.annotation.Bean;
@@ -9,6 +8,12 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -17,10 +22,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. Désactiver la protection CSRF (Inutile pour les API REST stateless)
+                // 1. ACTIVER CORS (C'est la ligne qui manquait !)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                // 2. Désactiver CSRF (Inutile pour les API REST stateless)
                 .csrf(AbstractHttpConfigurer::disable)
 
-                // 2. Configurer les règles d'accès
+                // 3. Configurer les règles d'accès
                 .authorizeHttpRequests(auth -> auth
                         // Autoriser l'accès public à toutes les routes API pour le développement
                         .requestMatchers("/api/**").permitAll()
@@ -31,7 +39,28 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // Bean pour encoder les mots de passe (sera utile pour la création de compte Étudiant)
+    // --- AJOUT : Configuration CORS Globale ---
+    @Bean
+    CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // Autoriser TOUTES les origines (Localhost, IP Mobile, etc.)
+        configuration.setAllowedOrigins(List.of("*"));
+
+        // Autoriser TOUTES les méthodes (GET, POST, PUT, DELETE, OPTIONS)
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+
+        // Autoriser TOUS les headers (Authorization, Content-Type, etc.)
+        configuration.setAllowedHeaders(List.of("*"));
+
+        // Exposer les headers si besoin
+        configuration.setExposedHeaders(List.of("Authorization"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

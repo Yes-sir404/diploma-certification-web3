@@ -2,6 +2,7 @@ package ma.yassir.diploma_backend.controller;
 
 import ma.yassir.diploma_backend.dto.VerificationResponse;
 import ma.yassir.diploma_backend.entity.Diploma;
+import ma.yassir.diploma_backend.service.BlockchainService;
 import ma.yassir.diploma_backend.service.DiplomaService;
 import ma.yassir.diploma_backend.service.PdfService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +14,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/verification")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*") // Important pour autoriser le Frontend et le Mobile
 public class VerificationController {
 
     @Autowired
@@ -22,56 +23,112 @@ public class VerificationController {
     @Autowired
     private PdfService pdfService;
 
-    // --- MÉTHODE 1 : VÉRIFICATION PAR UPLOAD (Niveau de preuve : ABSOLU) ---
-    // POST http://localhost:8080/api/verification/verify
+    @Autowired
+    private BlockchainService blockchainService;
+
+    // =========================================================
+    // 1. VÉRIFICATION PAR UPLOAD DE FICHIER (Drag & Drop)
+    // =========================================================
     @PostMapping("/verify")
     public ResponseEntity<VerificationResponse> verifyByFile(@RequestParam("file") MultipartFile file) {
         try {
+            // 1. Calculer le Hash du fichier reçu
             String uploadHash = pdfService.calculateHashFromStream(file.getInputStream());
-            System.out.println("🔍 Hash calculé : " + uploadHash);
 
+            // 2. Chercher ce Hash en Base de Données
             Optional<Diploma> diplomaOpt = diplomaService.getDiplomaByHash(uploadHash);
 
             if (diplomaOpt.isPresent()) {
-                return ResponseEntity.ok(mapToResponse(diplomaOpt.get(), true));
+                Diploma d = diplomaOpt.get();
+
+                // 3. Vérifier sur la Blockchain
+                boolean isValidOnChain = blockchainService.verifyDiplomaOnChain(
+                        d.getStudent().getCne(),
+                        uploadHash
+                );
+
+                // 4. Vérifier le statut local (Base de données)
+                // Le diplôme est valide SEULEMENT SI : Blockchain OK ET BDD OK
+                if (isValidOnChain && d.isValid()) {
+                    return ResponseEntity.ok(mapToResponse(d, true));
+                } else {
+                    // Cas RÉVOQUÉ
+                    return ResponseEntity.ok(VerificationResponse.builder()
+                            .valid(false)
+                            .message("⚠️ Le diplôme a été révoqué par l'université.") // <--- Message demandé
+                            .studentName(d.getStudent().getFirstName() + " " + d.getStudent().getLastName())
+                            .build());
+                }
+
             } else {
+                // Cas NON TROUVÉ
                 return ResponseEntity.ok(VerificationResponse.builder()
                         .valid(false)
-                        .message("❌ Ce document n'est pas reconnu (Hash introuvable).")
+                        .message("❌ Document inconnu ou non certifié.")
                         .build());
             }
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(VerificationResponse.builder()
-                    .valid(false).message("Erreur : " + e.getMessage()).build());
+                    .valid(false).message("Erreur technique : " + e.getMessage()).build());
         }
     }
 
-    // --- MÉTHODE 2 : VÉRIFICATION PAR ID (Pour le QR Code) ---
-    // GET http://localhost:8080/api/verification/{id}
-    @GetMapping("/{id}")
-    public ResponseEntity<VerificationResponse> verifyById(@PathVariable Long id) {
+    // =========================================================
+    // 2. VÉRIFICATION PAR CNE (QR CODE)
+    // =========================================================
+    @GetMapping("/cne/{cne}")
+    public ResponseEntity<VerificationResponse> verifyByCne(@PathVariable String cne) {
         try {
-            // On utilise la méthode existante du service
-            Diploma d = diplomaService.getDiplomaById(id);
+            // 1. Chercher le diplôme via le CNE de l'étudiant
+            Optional<Diploma> diplomaOpt = diplomaService.getDiplomaByCne(cne);
 
-            // Si on arrive ici, c'est que l'ID existe (sinon le service lance une exception)
-            return ResponseEntity.ok(mapToResponse(d, true));
+            if (diplomaOpt.isPresent()) {
+                Diploma d = diplomaOpt.get();
 
+                // 2. Vérifier sur la Blockchain (en utilisant le hash stocké dans le diplôme)
+                boolean isValidOnChain = blockchainService.verifyDiplomaOnChain(
+                        d.getStudent().getCne(),
+                        d.getPdfHash()
+                );
+
+                // 3. Vérifier le statut local
+                boolean isLocalValid = d.isValid();
+
+                // 4. Logique de validation combinée
+                boolean finalStatus = isValidOnChain && isLocalValid;
+
+                if (finalStatus) {
+                    return ResponseEntity.ok(mapToResponse(d, true));
+                } else {
+                    // Cas RÉVOQUÉ (QR Code)
+                    return ResponseEntity.ok(VerificationResponse.builder()
+                            .valid(false)
+                            .message("⚠️ Le diplôme a été révoqué par l'université.") // <--- Message demandé
+                            .studentName(d.getStudent().getFirstName() + " " + d.getStudent().getLastName())
+                            .build());
+                }
+
+            } else {
+                return ResponseEntity.ok(VerificationResponse.builder()
+                        .valid(false)
+                        .message("❌ Aucun diplôme trouvé pour ce CNE.")
+                        .build());
+            }
         } catch (Exception e) {
-            // Si l'ID n'existe pas
-            return ResponseEntity.ok(VerificationResponse.builder()
-                    .valid(false)
-                    .message("❌ Aucun diplôme trouvé avec cet identifiant.")
-                    .build());
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(VerificationResponse.builder()
+                    .valid(false).message("Erreur serveur : " + e.getMessage()).build());
         }
     }
 
-    // --- Petite méthode utilitaire pour éviter de répéter le code de mapping ---
+    // =========================================================
+    // HELPER : Construire la réponse JSON
+    // =========================================================
     private VerificationResponse mapToResponse(Diploma d, boolean isValid) {
         return VerificationResponse.builder()
                 .valid(isValid)
-                .message("✅ Ce diplôme est enregistré dans le système.")
-                .studentName(d.getStudent().getFirstName() + " " + d.getStudent().getLastName())
+                .message("✅ Ce diplôme est AUTHENTIQUE et enregistré.")
+                .studentName(d.getStudent() != null ? d.getStudent().getFirstName() + " " + d.getStudent().getLastName() : "Inconnu")
                 .speciality(d.getSpeciality())
                 .graduationYear(d.getGraduationYear())
                 .transactionHash(d.getTransactionHash())
