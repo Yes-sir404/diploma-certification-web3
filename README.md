@@ -52,8 +52,8 @@ Before running this project, ensure you have the following installed:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/Yes-sir404/Web3-Dapp-Marketplace.git
-cd Web3-Dapp-Marketplace
+git clone https://github.com/Yes-sir404/diploma-certification-web3.git
+cd diploma-certification-web3
 ```
 
 ### 2. Database Setup
