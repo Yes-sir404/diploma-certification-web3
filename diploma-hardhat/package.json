@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "compile": "hardhat compile",
+    "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

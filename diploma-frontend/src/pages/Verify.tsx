@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { diplomaService } from '../services/diplomaService';
 import { 
-  ShieldCheck, Upload, FileText, Loader2, CheckCircle, XCircle, Search, ExternalLink 
+  ShieldCheck, Upload, Loader2, CheckCircle, XCircle, ExternalLink 
 } from 'lucide-react';
 
 const Verify = () => {

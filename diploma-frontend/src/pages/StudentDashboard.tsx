@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { diplomaService } from '../services/diplomaService';
 import { 
   User, Award, Download, Calendar, Mail, 
-  CheckCircle, XCircle, FileText, Fingerprint, Linkedin, ExternalLink 
+  CheckCircle, XCircle, FileText, Fingerprint, Linkedin 
 } from 'lucide-react';
 
 const StudentDashboard = () => {
@@ -32,7 +32,7 @@ const StudentDashboard = () => {
   const addToLinkedIn = (diploma: any) => {
     // 1. Construire l'URL de vérification (ton IP locale pour la démo)
     // Remplace par ton IP si besoin, ou window.location.origin
-    const verifyUrl = `${window.location.protocol}//${window.location.hostname}:5173/verify/${user.cne}`;
+    const verifyUrl = `${window.location.origin}/verify/${user.cne}`;
 
     // 2. Préparer les paramètres
     const params = new URLSearchParams({

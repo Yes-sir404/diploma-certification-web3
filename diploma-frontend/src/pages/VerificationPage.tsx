@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { diplomaService } from '../services/diplomaService';
-import { CheckCircle, XCircle, Loader2, ShieldCheck, Search, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, ShieldCheck } from 'lucide-react';
 
 const VerificationPage = () => {
   const { cne } = useParams(); // Récupère le CNE depuis l'URL (ex: /verify/F13...)

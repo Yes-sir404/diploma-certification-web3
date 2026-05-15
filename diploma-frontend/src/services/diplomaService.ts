@@ -13,10 +13,8 @@ export const diplomaService = {
     return response.data;
   },
 
-  // URL pour télécharger (pour l'utiliser dans un lien href)
   getDownloadUrl: (id: number) => {
-    // Adapter le port si votre backend n'est pas sur 8080
-    return `http://localhost:8080/api/diplomas/download/${id}`;
+    return `${import.meta.env.VITE_API_URL}/diplomas/download/${id}`;
   },
   // 1. VÉRIFICATION PAR UPLOAD (Hash)
   verifyPdf: async (file: File) => {

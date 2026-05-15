@@ -1,8 +1,29 @@
 import { ethers } from "hardhat";
+import hre from "hardhat";
+
+function assertSepoliaEnv(): void {
+  const key = process.env.PRIVATE_KEY?.trim();
+  const hex = key?.startsWith("0x") ? key.slice(2) : key;
+  if (!key || !hex || !/^[0-9a-fA-F]{64}$/.test(hex)) {
+    throw new Error(
+      "Invalid or missing PRIVATE_KEY in .env. It must be exactly 64 hex characters (32 bytes). " +
+        "Export it from MetaMask: Account → Details → Show private key. Remove any placeholder text like 'YourPrivateKeyHere'."
+    );
+  }
+  if (!process.env.SEPOLIA_RPC_URL?.trim()) {
+    throw new Error("Missing SEPOLIA_RPC_URL in .env.");
+  }
+}
 
 async function main() {
-  // 1. Récupérer le compte qui déploie (l'Admin/L'École)
+  if (hre.network.name === "sepolia") {
+    assertSepoliaEnv();
+  }
+
   const [deployer] = await ethers.getSigners();
+  if (!deployer) {
+    throw new Error("No deployer account configured for this network.");
+  }
 
   console.log("----------------------------------------------------");
   console.log("Déploiement du contrat avec le compte :", deployer.address);

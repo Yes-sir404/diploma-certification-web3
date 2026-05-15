@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
 import { Wallet, Loader2, ArrowRight, ShieldAlert, Database } from 'lucide-react';
-import { ethers } from 'ethers'; // On importe ethers pour typer window.ethereum si besoin
-
 const AdminLogin = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
