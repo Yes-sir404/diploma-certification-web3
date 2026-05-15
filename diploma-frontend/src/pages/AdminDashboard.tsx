@@ -58,7 +58,7 @@ const AdminDashboard = () => {
       // On inverse pour voir les plus récents en premier
       setDiplomas(data.reverse());
     } catch (err) {
-      console.error("Erreur chargement diplômes", err);
+
     }
   };
 
@@ -94,7 +94,7 @@ const AdminDashboard = () => {
       setTimeout(() => setShowToast(null), 5000);
       
     } catch (err: any) {
-      console.error(err);
+
       setError("Erreur lors de la certification. Vérifiez le backend.");
     } finally {
       setLoading(false);
@@ -128,7 +128,7 @@ const AdminDashboard = () => {
       setTimeout(() => setShowToast(null), 5000);
 
     } catch (err) {
-      console.error(err);
+
       setError("Erreur lors de la transaction Blockchain.");
     } finally {
       setStatusLoading(false);

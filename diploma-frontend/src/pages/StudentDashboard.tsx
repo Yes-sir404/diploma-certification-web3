@@ -22,7 +22,7 @@ const StudentDashboard = () => {
       const data = await diplomaService.getMyDiplomas(user.id);
       setDiplomas(data);
     } catch (err) {
-      console.error("Erreur chargement diplômes", err);
+
     } finally {
       setLoading(false);
     }

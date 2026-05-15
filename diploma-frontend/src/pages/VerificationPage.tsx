@@ -21,7 +21,7 @@ const VerificationPage = () => {
       const data = await diplomaService.verifyByCne(cne!);
       setResult(data);
     } catch (error) {
-      console.error(error);
+
       setResult({ valid: false, message: "Erreur de connexion au serveur." });
     } finally {
       setLoading(false);

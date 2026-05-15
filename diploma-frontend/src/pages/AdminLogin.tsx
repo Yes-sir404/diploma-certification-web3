@@ -38,7 +38,7 @@ const AdminLogin = () => {
         const accounts = await (window.ethereum as any).request({ method: 'eth_requestAccounts' });
         const address = accounts[0];
 
-        console.log("Adresse wallet détectée :", address);
+
 
         // 3. Envoyer l'adresse au Backend pour vérification
         const data = await authService.loginAdmin(address);
@@ -48,7 +48,7 @@ const AdminLogin = () => {
         navigate('/admin-dashboard');
 
     } catch (err: any) {
-        console.error(err);
+
         // Gestion des erreurs spécifiques
         if (err.code === 4001) {
             // L'utilisateur a cliqué sur "Annuler" dans MetaMask
