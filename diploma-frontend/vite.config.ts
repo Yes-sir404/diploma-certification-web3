@@ -9,6 +9,12 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     host: true,
+    proxy: {
+      '/api': {
+        target: 'http://Diploma-backend-env.eba-ewvbvubi.eu-west-3.elasticbeanstalk.com',
+        changeOrigin: true,
+      },
+    },
   },
   resolve: {
     alias: {
